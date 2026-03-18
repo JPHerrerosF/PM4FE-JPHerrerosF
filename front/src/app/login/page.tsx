@@ -11,30 +11,39 @@ export default function Login() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    const storedUser = localStorage.getItem(`user_${email}`);
-    if (!storedUser) {
-      setError('Usuario no encontrado, regístrate primero');
+    try {
+      const res = await fetch('http://localhost:3001/users/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'Credenciales incorrectas');
+      }
+
+      const data = await res.json();
+      // data = { login: true, user: { id, name, email, ... }, token: "..." }
+      login({
+        id: data.user.id,
+        name: data.user.name,
+        email: data.user.email
+      }, data.token);
+
+      setSuccess(true);
+      setTimeout(() => { window.location.href = '/'; }, 1500);
+
+    } catch (err: any) {
+      setError(err.message || 'Error al iniciar sesión');
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const userData = JSON.parse(storedUser);
-
-    if (userData.password !== password) {
-      setError('Contraseña incorrecta');
-      setLoading(false);
-      return;
-    }
-
-    const fakeToken = 'fake-jwt-token-' + Date.now();
-    login({ name: userData.name, email: userData.email }, fakeToken);
-    setSuccess(true);
-    setTimeout(() => { window.location.href = '/'; }, 1500);
   };
 
   return (
@@ -62,9 +71,7 @@ export default function Login() {
         </button>
         <p className="text-center text-sm text-gray-600">
           ¿No tienes cuenta?{' '}
-          <Link href="/register" className="text-blue-600 hover:underline">
-            Regístrate aquí
-          </Link>
+          <Link href="/register" className="text-blue-600 hover:underline">Regístrate aquí</Link>
         </p>
       </form>
     </div>

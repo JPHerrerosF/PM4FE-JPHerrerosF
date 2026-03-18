@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 interface User {
+  id: number;       // ✅ agregado
   name: string;
   email: string;
 }
@@ -30,7 +31,7 @@ interface AuthContextType {
   addToCart: (product: CartItem) => void;
   removeFromCart: (id: number) => void;
   clearCart: () => void;
-  completePurchase: () => void;
+  completePurchase: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -81,10 +82,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setToken(null);
     setCart([]);
-    setPurchases([]);  
+    setPurchases([]);
     localStorage.removeItem('token');
     localStorage.removeItem('cart');
-    localStorage.removeItem('user');  
+    localStorage.removeItem('user');
   };
 
   const addToCart = (product: CartItem) => {
@@ -106,23 +107,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('cart');
   };
 
-  const completePurchase = () => {
-    if (cart.length === 0 || !user) return;
+  const completePurchase = async () => {
+    if (cart.length === 0 || !user || !token) {
+      alert('No hay productos en el carrito o no estás logueado');
+      return;
+    }
+    try {
+      const productIds = cart.map(item => item.id);
+      const res = await fetch('http://localhost:3001/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          products: productIds
+        })
+      });
 
-    const total = cart.reduce((sum, item) => sum + item.price, 0);
-    const newPurchase: Purchase = {
-      date: new Date().toISOString(),
-      products: [...cart],
-      total
-    };
-
-    const newPurchases = [newPurchase, ...purchases];
-    setPurchases(newPurchases);
-
-    const key = `purchases_${user.email}`;
-    localStorage.setItem(key, JSON.stringify(newPurchases));
-
-    clearCart();
+      if (res.ok) {
+        const total = cart.reduce((sum, item) => sum + item.price, 0);
+        const newPurchase: Purchase = {
+          date: new Date().toISOString(),
+          products: [...cart],
+          total
+        };
+        const newPurchases = [newPurchase, ...purchases];
+        setPurchases(newPurchases);
+        const key = `purchases_${user.email}`;
+        localStorage.setItem(key, JSON.stringify(newPurchases));
+        clearCart();
+        
+      } else {
+        const errData = await res.json();
+        throw new Error(errData.message || 'Error del servidor');
+      }
+    } catch (error) {
+      console.error('Error al realizar la compra:', error);
+      alert('Error al procesar la compra');
+    }
   };
 
   return (

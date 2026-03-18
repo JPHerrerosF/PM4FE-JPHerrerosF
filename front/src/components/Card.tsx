@@ -13,7 +13,7 @@ export default function Card({ product }: CardProps) {
   const isInCart = cart.some(item => item.id === product.id);
 
   const handleAdd = (e: React.MouseEvent) => {
-    e.preventDefault(); // evita navegar al detalle
+    e.preventDefault(); 
     addToCart({
       id: product.id,
       name: product.name,
@@ -22,7 +22,7 @@ export default function Card({ product }: CardProps) {
   };
 
   const handleRemove = (e: React.MouseEvent) => {
-    e.preventDefault(); // evita navegar al detalle
+    e.preventDefault(); 
     removeFromCart(product.id);
   };
 
